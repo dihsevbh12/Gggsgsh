@@ -1,33 +1,59 @@
-# Database Management and Game Statistics
+import sqlite3
 
-class Database:
-    def __init__(self):
-        self.data = {}
+class GameStatistics:
+    def __init__(self, db_name='game_stats.db'):
+        self.conn = sqlite3.connect(db_name)
+        self.create_tables()
 
-    def add_record(self, game_id, stats):
-        self.data[game_id] = stats
+    def create_tables(self):
+        with self.conn:
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS players (
+                                    player_id INTEGER PRIMARY KEY,
+                                    player_name TEXT NOT NULL
+                                )''')
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS matches (
+                                    match_id INTEGER PRIMARY KEY,
+                                    match_date TEXT NOT NULL
+                                )''')
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS match_players (
+                                    match_player_id INTEGER PRIMARY KEY,
+                                    match_id INTEGER,
+                                    player_id INTEGER,
+                                    FOREIGN KEY (match_id) REFERENCES matches (match_id),
+                                    FOREIGN KEY (player_id) REFERENCES players (player_id)
+                                )''')
+            self.conn.execute('''CREATE TABLE IF NOT EXISTS action_logs (
+                                    log_id INTEGER PRIMARY KEY,
+                                    match_player_id INTEGER,
+                                    action TEXT NOT NULL,
+                                    action_time TEXT NOT NULL,
+                                    FOREIGN KEY (match_player_id) REFERENCES match_players (match_player_id)
+                                )''')
 
-    def get_record(self, game_id):
-        return self.data.get(game_id, "No record found.")
+    def add_player(self, player_name):
+        with self.conn:
+            self.conn.execute('INSERT INTO players (player_name) VALUES (?)', (player_name,))
 
-    def update_record(self, game_id, stats):
-        if game_id in self.data:
-            self.data[game_id] = stats
-            return True
-        return False
+    def record_match(self, match_date):
+        with self.conn:
+            self.conn.execute('INSERT INTO matches (match_date) VALUES (?)', (match_date,))
 
-    def delete_record(self, game_id):
-        if game_id in self.data:
-            del self.data[game_id]
-            return True
-        return False
+    def add_match_player(self, match_id, player_id):
+        with self.conn:
+            self.conn.execute('INSERT INTO match_players (match_id, player_id) VALUES (?, ?)', (match_id, player_id))
 
-# Example Usage
-if __name__ == '__main__':
-    db = Database()
-    db.add_record(1, {'score': 100, 'level': 5})
-    print(db.get_record(1))
-    db.update_record(1, {'score': 150, 'level': 6})
-    print(db.get_record(1))
-    db.delete_record(1)
-    print(db.get_record(1))
+    def log_action(self, match_player_id, action):
+        action_time = datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')
+        with self.conn:
+            self.conn.execute('INSERT INTO action_logs (match_player_id, action, action_time) VALUES (?, ?, ?)', (match_player_id, action, action_time))
+
+    def close(self):
+        self.conn.close()
+
+# Example usage:
+# stats = GameStatistics()
+# stats.add_player('John Doe')
+# stats.record_match('2026-02-22')
+# stats.add_match_player(1, 1)
+# stats.log_action(1, 'Player scored')
+# stats.close()
